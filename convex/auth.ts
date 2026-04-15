@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 // Simple hash function using available Web APIs
@@ -243,5 +243,71 @@ export const validateSession = query({
       username: user.username,
       email: user.email,
     };
+  },
+});
+
+// Admin-only: create a user without opening a browser session.
+// Called exclusively from the HTTP action in http.ts.
+export const adminCreateUser = internalMutation({
+  args: {
+    username: v.string(),
+    email: v.string(),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const username = args.username.trim();
+    const email = args.email.trim().toLowerCase();
+    const password = args.password;
+
+    if (username.length < 3 || username.length > 30)
+      throw new Error("Username must be between 3 and 30 characters");
+    if (!/^[a-zA-Z0-9_]+$/.test(username))
+      throw new Error("Username can only contain letters, numbers, and underscores");
+    if (!validateEmail(email))
+      throw new Error("Invalid email address");
+
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) throw new Error(pwCheck.message);
+
+    const existingEmail = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+    if (existingEmail) throw new Error("Email already registered");
+
+    const existingUsername = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", username))
+      .first();
+    if (existingUsername) throw new Error("Username already taken");
+
+    const salt = generateSalt();
+    const passwordHash = await hashPassword(password, salt);
+
+    const userId = await ctx.db.insert("users", {
+      username,
+      email,
+      passwordHash,
+      salt,
+      createdAt: Date.now(),
+      isActive: true,
+    });
+
+    return { userId, username, email };
+  },
+});
+
+// Admin-only: list all users (no sensitive data exposed).
+export const adminListUsers = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    return users.map((u) => ({
+      userId: u._id,
+      username: u.username,
+      email: u.email,
+      isActive: u.isActive,
+      createdAt: u.createdAt,
+    }));
   },
 });
