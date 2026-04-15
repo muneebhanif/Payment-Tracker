@@ -4,11 +4,35 @@
  */
 
 /* ConvexClient is provided by convex-browser.js loaded via <script> tag */
-const { ConvexClient } = window.convex;
+if (typeof convex === "undefined" && typeof window.convex === "undefined") {
+  document.addEventListener("DOMContentLoaded", () => {
+    document.body.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#0f172a;color:#f8fafc">' +
+      '<div style="text-align:center;max-width:420px;padding:32px">' +
+      '<h2 style="color:#ef4444;margin-bottom:12px">Failed to load</h2>' +
+      '<p style="color:#94a3b8">The Convex client library could not be loaded. Please refresh or check your network connection.</p>' +
+      '</div></div>';
+  });
+  throw new Error("Convex browser bundle not loaded");
+}
+const { ConvexClient } = (typeof convex !== "undefined" ? convex : window.convex);
 
 // ═══════════════════════════ CONVEX SETUP ═══════════════════════════
 const CONVEX_URL = "https://capable-nightingale-509.eu-west-1.convex.cloud";
 const client = new ConvexClient(CONVEX_URL);
+
+// ═══════════════════════════ ERROR HELPER ═════════════════════════════
+function errMsg(err) {
+  if (!err) return "Something went wrong. Please try again.";
+  // Convex ConvexError may wrap the message differently
+  if (typeof err === "string") return err;
+  if (err.message && typeof err.message === "string") {
+    // Strip Convex internal prefixes like "[CONVEX M(...)] Uncaught Error: "
+    return err.message.replace(/^\[.*?\]\s*/, "").replace(/^Uncaught Error:\s*/i, "");
+  }
+  if (err.data && typeof err.data === "string") return err.data;
+  return "Something went wrong. Please try again.";
+}
 
 // ═══════════════════════════ STATE ═══════════════════════════════════
 let state = {
@@ -132,7 +156,8 @@ document.getElementById("login-form-el").addEventListener("submit", async (e) =>
     showApp();
     showToast("Welcome back, " + result.username + "!", "success");
   } catch (err) {
-    showError("login-error", err.message);
+    console.error("Login error:", err);
+    showError("login-error", errMsg(err));
   } finally {
     setButtonLoading("login-btn", false);
   }
@@ -170,7 +195,8 @@ document.getElementById("register-form-el").addEventListener("submit", async (e)
     showApp();
     showToast("Account created! Welcome, " + result.username + "!", "success");
   } catch (err) {
-    showError("register-error", err.message);
+    console.error("Register error:", err);
+    showError("register-error", errMsg(err));
   } finally {
     setButtonLoading("register-btn", false);
   }
@@ -239,10 +265,13 @@ async function loadSection(section) {
     else if (section === "savings") await loadSavings();
     else if (section === "debtors") await loadDebtors();
   } catch (err) {
-    if (err.message?.includes("Unauthorized")) {
+    console.error("Navigation error:", err);
+    if (errMsg(err).includes("Unauthorized")) {
       clearSession();
       showAuthScreen();
       showToast("Session expired. Please sign in again.", "warning");
+    } else {
+      showToast(errMsg(err), "error");
     }
   }
 }
@@ -384,7 +413,8 @@ window.createAccount = async function () {
     showToast("Account created successfully", "success");
     if (state.currentSection === "dashboard") loadDashboard();
   } catch (err) {
-    showError("create-account-error", err.message);
+    console.error("Create account error:", err);
+    showError("create-account-error", errMsg(err));
   }
 };
 
@@ -401,7 +431,8 @@ window.confirmDeleteAccount = function (accountId, name) {
       if (state.currentSection === "dashboard") loadDashboard();
       showToast("Account deleted", "success");
     } catch (err) {
-      showToast(err.message, "error");
+      console.error("Delete account error:", err);
+      showToast(errMsg(err), "error");
     }
   });
 };
@@ -573,7 +604,8 @@ window.addTransaction = async function () {
     await loadSection(state.currentSection);
     showToast("Transaction added", "success");
   } catch (err) {
-    showError("add-tx-error", err.message);
+    console.error("Add transaction error:", err);
+    showError("add-tx-error", errMsg(err));
   }
 };
 
@@ -584,7 +616,8 @@ window.confirmDeleteTx = function (txId, category) {
       await loadSection(state.currentSection);
       showToast("Transaction deleted", "success");
     } catch (err) {
-      showToast(err.message, "error");
+      console.error("Delete transaction error:", err);
+      showToast(errMsg(err), "error");
     }
   });
 };
@@ -713,7 +746,8 @@ window.submitSavingsTransaction = async function () {
     await loadSavings();
     showToast(`Savings ${state.currentSavingsTxType === "income" ? "deposit" : "withdrawal"} recorded`, "success");
   } catch (err) {
-    showError("savings-tx-error", err.message);
+    console.error("Savings transaction error:", err);
+    showError("savings-tx-error", errMsg(err));
   }
 };
 
@@ -818,7 +852,8 @@ window.createDebtor = async function () {
     await loadDebtors();
     showToast("Debtor added successfully", "success");
   } catch (err) {
-    showError("create-debtor-error", err.message);
+    console.error("Create debtor error:", err);
+    showError("create-debtor-error", errMsg(err));
   }
 };
 
@@ -909,7 +944,8 @@ window.submitDebtTransaction = async function () {
     renderDebtors(state.debtors, state.debtorFilter);
     showToast(state.currentDebtTxType === "given" ? "Debt recorded" : "Payment recorded", "success");
   } catch (err) {
-    showError("debt-tx-error", err.message);
+    console.error("Debt transaction error:", err);
+    showError("debt-tx-error", errMsg(err));
   }
 };
 
@@ -920,7 +956,8 @@ window.confirmDeleteDebtor = function (debtorId, name) {
       await loadDebtors();
       showToast("Debtor deleted", "success");
     } catch (err) {
-      showToast(err.message, "error");
+      console.error("Delete debtor error:", err);
+      showToast(errMsg(err), "error");
     }
   });
 };

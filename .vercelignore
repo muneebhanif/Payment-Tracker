@@ -1,0 +1,8 @@
+node_modules
+convex
+.convex_tmp
+.env.local
+package.json
+package-lock.json
+server.js
+.git
