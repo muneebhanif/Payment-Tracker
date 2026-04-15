@@ -1,0 +1,43 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options",    "value": "nosniff" },
+        { "key": "X-Frame-Options",            "value": "DENY" },
+        { "key": "X-XSS-Protection",           "value": "1; mode=block" },
+        { "key": "Referrer-Policy",            "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy",         "value": "geolocation=(), microphone=(), camera=()" },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://unpkg.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; connect-src 'self' https://capable-nightingale-509.eu-west-1.convex.cloud wss://capable-nightingale-509.eu-west-1.convex.cloud; img-src 'self' data:; frame-ancestors 'none';"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(style\\.css|app\\.js)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    }
+  ]
+}
