@@ -3,7 +3,8 @@
  * Convex-powered frontend application
  */
 
-import { ConvexClient } from "https://unpkg.com/convex@latest/dist/browser.bundle.mjs";
+/* ConvexClient is provided by convex-browser.js loaded via <script> tag */
+const { ConvexClient } = window.convex;
 
 // ═══════════════════════════ CONVEX SETUP ═══════════════════════════
 const CONVEX_URL = "https://capable-nightingale-509.eu-west-1.convex.cloud";
@@ -1098,18 +1099,12 @@ function updatePasswordStrength() {
   fill.style.background = colors[score - 1] || "#EF4444";
 }
 
-// ═══════════════════════════ PW TOGGLE ════════════════════════════════
-window.togglePw = function (inputId, btn) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
-  const isText = input.type === "text";
-  input.type = isText ? "password" : "text";
-  btn.innerHTML = isText
-    ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
-    : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
-};
-
 // Keyboard shortcuts
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    document.querySelectorAll(".modal-overlay:not(.hidden)").forEach((m) => m.classList.add("hidden"));
+  }
+});
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     document.querySelectorAll(".modal-overlay:not(.hidden)").forEach((m) => m.classList.add("hidden"));

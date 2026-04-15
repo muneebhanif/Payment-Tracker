@@ -11,7 +11,7 @@
         { "key": "Permissions-Policy",         "value": "geolocation=(), microphone=(), camera=()" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://unpkg.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; connect-src 'self' https://capable-nightingale-509.eu-west-1.convex.cloud wss://capable-nightingale-509.eu-west-1.convex.cloud; img-src 'self' data:; frame-ancestors 'none';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; connect-src 'self' https://capable-nightingale-509.eu-west-1.convex.cloud wss://capable-nightingale-509.eu-west-1.convex.cloud; img-src 'self' data:; frame-ancestors 'none';"
         }
       ]
     },
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "source": "/(style\\.css|app\\.js)",
+      "source": "/(style\\.css|app\\.js|convex-browser\\.js)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=3600" }
       ]
