@@ -785,13 +785,24 @@ async function loadDebtors() {
 function renderDebtors(debtors, filter) {
   const filtered = filter ? debtors.filter((d) => d.status === filter) : debtors;
   const grid = document.getElementById("debtors-list");
-
   if (filtered.length === 0) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">${svgEmpty()}<p>No debtors found.</p></div>`;
     return;
   }
 
-  grid.innerHTML = filtered.map((d) => `
+  // Build a summary table of all debtors at the top
+  const summaryRows = debtors.map(d => `
+    <tr><td>${escHtml(d.name)}</td><td>${fmt(d.totalOwed)}</td></tr>`).join('');
+  const summaryHtml = `
+    <div class="debtors-summary" style="margin-bottom:16px;overflow-x:auto;">
+      <h3>All Debtors Owed</h3>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr><th style="text-align:left;padding:4px;">Name</th><th style="text-align:left;padding:4px;">Amount Owed</th></tr></thead>
+        <tbody>${summaryRows}</tbody>
+      </table>
+    </div>`;
+
+  grid.innerHTML = summaryHtml + filtered.map((d) => `
     <div class="debtor-card" onclick="openDebtorDetail('${d._id}')">
       <div class="debtor-card-header">
         <div class="debtor-avatar">${escHtml(d.name[0].toUpperCase())}</div>
@@ -819,7 +830,7 @@ function renderDebtors(debtors, filter) {
         </div>
       </div>
     </div>
-  `).join("");
+  `).join("\n");
 }
 
 window.filterDebtors = function (btn, status) {

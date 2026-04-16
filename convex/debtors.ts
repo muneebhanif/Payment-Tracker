@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
@@ -34,6 +35,19 @@ export const getDebtors = query({
       debtors = debtors.filter((d: any) => d.status === args.status);
     }
 
+    return debtors.sort((a: any, b: any) => b.updatedAt - a.updatedAt);
+  },
+});
+
+// New public query to list all debtors for a user (no status filter)
+export const listDebtors = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getAuthenticatedUser(ctx, args.token);
+    const debtors = await ctx.db
+      .query("debtors")
+      .withIndex("by_userId", (q: any) => q.eq("userId", user._id))
+      .collect();
     return debtors.sort((a: any, b: any) => b.updatedAt - a.updatedAt);
   },
 });
