@@ -638,10 +638,12 @@ async function loadSavings() {
     client.query("transactions:getTransactions", { token: state.token }),
   ]);
 
-  const savingsAccounts = accounts.filter((a) => a.type === "savings");
+  // Only use active accounts (isActive may be absent on older records, treat as true)
+  const activeAccounts = accounts.filter((a) => a.isActive !== false);
+  const savingsAccounts = activeAccounts.filter((a) => a.type === "savings");
   const totalSavings = savingsAccounts.reduce((s, a) => s + a.balance, 0);
   const savingsTx = allTx.filter((t) => {
-    const acc = accounts.find((a) => a._id === t.accountId);
+    const acc = activeAccounts.find((a) => a._id === t.accountId);
     return acc && acc.type === "savings";
   });
 
@@ -1091,28 +1093,67 @@ window.downloadCombinedPdf = async function () {
       showToast("No debtors to export", "info");
       return;
     }
-    const rows = debtors.map(d => `
-      <tr>
-        <td>${escHtml(d.name)}</td>
-        <td>${fmt(d.totalOwed)}</td>
+    const totalOwed = debtors.reduce((s, d) => s + (d.totalOwed || 0), 0);
+    const activeCount = debtors.filter(d => d.status === 'active').length;
+    const partialCount = debtors.filter(d => d.status === 'partial').length;
+    const clearedCount = debtors.filter(d => d.status === 'cleared').length;
+    const printDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const statusColor = { active: '#DC2626', partial: '#D97706', cleared: '#059669' };
+    const statusBg   = { active: '#FEE2E2', partial: '#FEF3C7', cleared: '#D1FAE5' };
+
+    const rows = debtors.map((d, i) => `
+      <tr style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'}">
+        <td style="padding:10px 14px;font-weight:600">${escHtml(d.name)}</td>
+        <td style="padding:10px 14px;color:#64748b;font-size:12px">${escHtml(d.phone || d.email || '—')}</td>
+        <td style="padding:10px 14px;text-align:center">
+          <span style="background:${statusBg[d.status]||'#e2e8f0'};color:${statusColor[d.status]||'#475569'};padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase">${d.status || 'active'}</span>
+        </td>
+        <td style="padding:10px 14px;text-align:right;font-weight:700;color:${d.totalOwed === 0 ? '#059669' : '#DC2626'}">${fmt(d.totalOwed)}</td>
       </tr>`).join('');
+
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>All Debtors Ledger</title><style>
-      body{font-family:sans-serif;padding:20px;}
-      table{width:100%;border-collapse:collapse;}
-      th,td{border:1px solid #ddd;padding:8px;text-align:left;}
-      th{background:#f4f4f4;}
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,Helvetica,sans-serif;padding:36px;color:#0f172a;font-size:13px;background:#fff}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;border-bottom:3px solid #0f172a;padding-bottom:16px}
+      .header h1{font-size:22px;font-weight:800;letter-spacing:-0.5px}
+      .header .meta{text-align:right;color:#64748b;font-size:12px;line-height:1.7}
+      .stats{display:flex;gap:16px;margin-bottom:24px}
+      .stat{flex:1;background:#f1f5f9;border-radius:8px;padding:14px 16px}
+      .stat-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+      .stat-value{font-size:18px;font-weight:800;color:#0f172a}
+      .stat-value.red{color:#DC2626}
+      table{width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0}
+      thead tr{background:#0f172a;color:#fff}
+      thead th{padding:11px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+      thead th:last-child{text-align:right}
+      tfoot tr{background:#f1f5f9}
+      tfoot td{padding:11px 14px;font-weight:700;font-size:13px;border-top:2px solid #e2e8f0}
+      tfoot td:last-child{text-align:right;color:#DC2626;font-size:15px}
+      .footer{margin-top:20px;text-align:center;color:#94a3b8;font-size:11px}
+      @media print{body{padding:16px}}
     </style></head><body>
-      <h2>All Debtors Ledger</h2>
+      <div class="header">
+        <div><h1>All Debtors Ledger</h1><div style="color:#64748b;font-size:12px;margin-top:4px">Outstanding receivables summary</div></div>
+        <div class="meta"><div>Printed: ${printDate}</div><div>${debtors.length} debtor${debtors.length !== 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Total Outstanding</div><div class="stat-value red">${fmt(totalOwed)}</div></div>
+        <div class="stat"><div class="stat-label">Active</div><div class="stat-value">${activeCount}</div></div>
+        <div class="stat"><div class="stat-label">Partial</div><div class="stat-value">${partialCount}</div></div>
+        <div class="stat"><div class="stat-label">Cleared</div><div class="stat-value">${clearedCount}</div></div>
+      </div>
       <table>
-        <thead><tr><th>Name</th><th>Amount Owed</th></tr></thead>
+        <thead><tr><th>Name</th><th>Contact</th><th>Status</th><th style="text-align:right">Amount Owed</th></tr></thead>
         <tbody>${rows}</tbody>
+        <tfoot><tr><td colspan="3">Total Outstanding</td><td>${fmt(totalOwed)}</td></tr></tfoot>
       </table>
+      <div class="footer">Generated by FinTrack &bull; ${printDate}</div>
+      <script>window.onload=function(){window.print();}<\/script>
     </body></html>`;
     const win = window.open('', '_blank');
     win.document.write(html);
     win.document.close();
-    // Trigger print dialog for PDF export
-    win.print();
   } catch (err) {
     console.error('Combined PDF error:', err);
     showToast(errMsg(err), 'error');
@@ -1148,9 +1189,15 @@ function populateAccountSelects() {
 
 function fmt(amount) {
   if (amount === undefined || amount === null || isNaN(amount)) return "—";
-  const abs = Math.abs(amount);
-  const formatted = abs.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return (amount < 0 ? "-" : "") + "£" + formatted;
+  const n = Number(amount);
+  const abs = Math.abs(n);
+  // Drop .00 when value is a whole number
+  const hasPence = abs % 1 !== 0;
+  const formatted = abs.toLocaleString("en-GB", {
+    minimumFractionDigits: hasPence ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+  return (n < 0 ? "-" : "") + "£" + formatted;
 }
 
 function formatDate(ts) {
