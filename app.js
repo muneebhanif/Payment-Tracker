@@ -1071,6 +1071,43 @@ window.downloadLedgerPdf = async function () {
   win.document.close();
 };
 
+// ── Download combined PDF for all debtors ───────────────────────────────────────
+window.downloadCombinedPdf = async function () {
+  try {
+    // Fetch all debtors (including those without totalOwed field)
+    const debtors = await client.query("debtors:listDebtors", { token: state.token });
+    if (!debtors || debtors.length === 0) {
+      showToast("No debtors to export", "info");
+      return;
+    }
+    const rows = debtors.map(d => `
+      <tr>
+        <td>${escHtml(d.name)}</td>
+        <td>${fmt(d.totalOwed)}</td>
+      </tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>All Debtors Ledger</title><style>
+      body{font-family:sans-serif;padding:20px;}
+      table{width:100%;border-collapse:collapse;}
+      th,td{border:1px solid #ddd;padding:8px;text-align:left;}
+      th{background:#f4f4f4;}
+    </style></head><body>
+      <h2>All Debtors Ledger</h2>
+      <table>
+        <thead><tr><th>Name</th><th>Amount Owed</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </body></html>`;
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    // Trigger print dialog for PDF export
+    win.print();
+  } catch (err) {
+    console.error('Combined PDF error:', err);
+    showToast(errMsg(err), 'error');
+  }
+};
+
 
 function clearDebtorForm() {
   document.getElementById("debtor-name").value = "";
