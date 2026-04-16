@@ -427,8 +427,7 @@ window.confirmDeleteAccount = function (accountId, name) {
   showConfirm(`Delete account "${name}"?`, "This will hide the account. Transactions will be preserved.", async () => {
     try {
       await client.mutation("accounts:deleteAccount", { token: state.token, accountId });
-      await loadAccounts();
-      if (state.currentSection === "dashboard") loadDashboard();
+      await Promise.all([loadAccounts(), loadDashboard()]);
       showToast("Account deleted", "success");
     } catch (err) {
       console.error("Delete account error:", err);
@@ -809,8 +808,13 @@ function renderDebtors(debtors, filter) {
       <div class="debtor-card-footer">
         <div style="font-size:.78rem;color:var(--text-muted)">Updated ${formatDate(d.updatedAt)}</div>
         <div class="debtor-actions" onclick="event.stopPropagation()">
-          <button class="acc-action-btn" onclick="confirmDeleteDebtor('${d._id}', '${escAttr(d.name)}')">
+          <button class="acc-action-btn" onclick="openEditDebtor('${d._id}', '${escAttr(d.name)}', '${escAttr(d.phone||'')}', '${escAttr(d.email||'')}', '${escAttr(d.notes||'')}')" title="Edit debtor">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit
+          </button>
+          <button class="acc-action-btn" style="color:var(--danger);border-color:#FECACA" onclick="confirmDeleteDebtor('${d._id}', '${escAttr(d.name)}')" title="Delete debtor">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            Delete
           </button>
         </div>
       </div>
@@ -830,11 +834,36 @@ window.createDebtor = async function () {
   const phone = sanitize(document.getElementById("debtor-phone").value);
   const email = sanitize(document.getElementById("debtor-email").value).toLowerCase();
   const notes = sanitize(document.getElementById("debtor-notes").value);
-  const initialAmount = parseFloat(document.getElementById("debtor-initial-amount").value) || 0;
-  const initialDescription = sanitize(document.getElementById("debtor-initial-desc").value);
 
   clearFieldErrors(["debtor-name-err"]);
   if (!name) { setFieldError("debtor-name-err", "Name is required"); return; }
+
+  // Edit mode
+  if (editingDebtorId) {
+    try {
+      hideError("create-debtor-error");
+      await client.mutation("debtors:updateDebtor", {
+        token: state.token,
+        debtorId: editingDebtorId,
+        name, phone: phone || undefined, email: email || undefined, notes: notes || undefined,
+      });
+      editingDebtorId = null;
+      document.getElementById("create-debtor-title").textContent = "Add New Debtor";
+      const initRow = document.getElementById("debtor-init-row");
+      if (initRow) initRow.style.display = "";
+      hideModal("create-debtor-modal");
+      clearDebtorForm();
+      await loadDebtors();
+      showToast("Debtor updated successfully", "success");
+    } catch (err) {
+      console.error("Update debtor error:", err);
+      showError("create-debtor-error", errMsg(err));
+    }
+    return;
+  }
+
+  const initialAmount = parseFloat(document.getElementById("debtor-initial-amount").value) || 0;
+  const initialDescription = sanitize(document.getElementById("debtor-initial-desc").value);
 
   try {
     hideError("create-debtor-error");
@@ -953,6 +982,7 @@ window.confirmDeleteDebtor = function (debtorId, name) {
   showConfirm(`Delete debtor "${name}"?`, "All their transaction history will be permanently deleted.", async () => {
     try {
       await client.mutation("debtors:deleteDebtor", { token: state.token, debtorId });
+      hideModal("debtor-detail-modal");
       await loadDebtors();
       showToast("Debtor deleted", "success");
     } catch (err) {
@@ -961,6 +991,86 @@ window.confirmDeleteDebtor = function (debtorId, name) {
     }
   });
 };
+
+// ── Edit debtor (re-uses create modal in edit mode) ──────────────────
+let editingDebtorId = null;
+window.openEditDebtor = function (debtorId, name, phone, email, notes) {
+  editingDebtorId = debtorId;
+  document.getElementById("create-debtor-title").textContent = "Edit Debtor";
+  document.getElementById("debtor-name").value = name;
+  document.getElementById("debtor-phone").value = phone;
+  document.getElementById("debtor-email").value = email;
+  document.getElementById("debtor-notes").value = notes;
+  // Hide initial-amount row in edit mode
+  const initRow = document.getElementById("debtor-init-row");
+  if (initRow) initRow.style.display = "none";
+  showModal("create-debtor-modal");
+};
+
+window.cancelEditDebtor = function () {
+  editingDebtorId = null;
+  document.getElementById("create-debtor-title").textContent = "Add New Debtor";
+  const initRow = document.getElementById("debtor-init-row");
+  if (initRow) initRow.style.display = "";
+  hideModal("create-debtor-modal");
+  clearDebtorForm();
+};
+
+// ── Download ledger as PDF ───────────────────────────────────────────
+window.downloadLedgerPdf = async function () {
+  const debtor = state.currentDebtor;
+  if (!debtor) return;
+
+  const transactions = await client.query("debtors:getDebtTransactions", {
+    token: state.token,
+    debtorId: debtor._id,
+  });
+
+  // Build printable HTML page and trigger browser print-to-PDF
+  const rows = transactions.map((t) => `
+    <tr>
+      <td>${formatDate(t.date)}</td>
+      <td>${escHtml(t.description || "—")}</td>
+      <td style="color:#EF4444;font-weight:600">${t.type === "given" ? fmt(t.amount) : "—"}</td>
+      <td style="color:#10B981;font-weight:600">${t.type === "returned" ? fmt(t.amount) : "—"}</td>
+      <td style="font-weight:700;color:${t.runningBalance === 0 ? "#10B981" : "#EF4444"}">${fmt(t.runningBalance)}</td>
+    </tr>
+  `).join("");
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Ledger – ${escHtml(debtor.name)}</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:32px;color:#0f172a;font-size:13px}
+    h1{font-size:20px;margin-bottom:4px}
+    .sub{color:#64748b;margin-bottom:24px;font-size:13px}
+    .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase}
+    .active{background:#FEE2E2;color:#DC2626}.partial{background:#FEF3C7;color:#D97706}.cleared{background:#D1FAE5;color:#059669}
+    table{width:100%;border-collapse:collapse;margin-top:16px}
+    th{background:#f1f5f9;padding:9px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;border-bottom:2px solid #e2e8f0}
+    td{padding:9px 12px;border-bottom:1px solid #e2e8f0}
+    .total-row td{font-weight:700;background:#f8fafc;border-top:2px solid #e2e8f0}
+    @media print{body{padding:16px}}
+  </style></head><body>
+  <h1>Debt Ledger – ${escHtml(debtor.name)}</h1>
+  <div class="sub">
+    ${debtor.phone ? "📞 " + escHtml(debtor.phone) + " &nbsp;&nbsp;" : ""}
+    ${debtor.email ? "✉ " + escHtml(debtor.email) + " &nbsp;&nbsp;" : ""}
+    Status: <span class="badge ${debtor.status}">${capitalize(debtor.status)}</span>
+    &nbsp;&nbsp; Printed: ${new Date().toLocaleDateString("en-GB", {day:"numeric",month:"long",year:"numeric"})}
+  </div>
+  <table>
+    <thead><tr><th>Date</th><th>Description</th><th>Given (Owed)</th><th>Returned (Paid)</th><th>Running Balance</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr class="total-row"><td colspan="4">Total Outstanding</td><td style="color:${debtor.totalOwed===0?"#059669":"#DC2626"}">${fmt(debtor.totalOwed)}</td></tr></tfoot>
+  </table>
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+
+  const win = window.open("", "_blank");
+  win.document.write(html);
+  win.document.close();
+};
+
 
 function clearDebtorForm() {
   document.getElementById("debtor-name").value = "";
@@ -991,7 +1101,7 @@ function populateAccountSelects() {
 function fmt(amount) {
   if (amount === undefined || amount === null || isNaN(amount)) return "—";
   const abs = Math.abs(amount);
-  const formatted = abs >= 1000000 ? (abs / 1000000).toFixed(2) + "M" : abs >= 1000 ? (abs / 1000).toFixed(2) + "k" : abs.toFixed(2);
+  const formatted = abs.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return (amount < 0 ? "-" : "") + "£" + formatted;
 }
 
