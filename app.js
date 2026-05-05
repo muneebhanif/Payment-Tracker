@@ -372,10 +372,11 @@ async function loadAccounts() {
 
   grid.innerHTML = accounts.map((a) => `
     <div class="account-card">
-      <div class="account-card-top" style="--accent:${a.color}">
+      <div class="account-card-top" style="--accent:${a.color};cursor:pointer" onclick="openAccountTransactions('${a._id}')" title="View transactions">
         <div class="acc-type-badge">${capitalize(a.type)}</div>
         <div class="acc-name">${escHtml(a.name)}</div>
         <div class="acc-balance">${fmt(a.balance)}</div>
+        <div style="font-size:0.7rem;opacity:0.75;margin-top:4px">Tap to view transactions →</div>
       </div>
       <div class="account-card-bottom">
         <div class="acc-description">${escHtml(a.description || '')}</div>
@@ -392,6 +393,17 @@ async function loadAccounts() {
     </div>
   `).join("");
 }
+
+window.openAccountTransactions = function(accountId) {
+  navigate("transactions");
+  setTimeout(() => {
+    const sel = document.getElementById("tx-filter-account");
+    if (sel) {
+      sel.value = accountId;
+      applyTransactionFilters();
+    }
+  }, 300);
+};
 
 window.createAccount = async function () {
   const name = sanitize(document.getElementById("acc-name").value);
