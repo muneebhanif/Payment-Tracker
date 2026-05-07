@@ -232,7 +232,7 @@ window.navigate = function (section) {
   document.getElementById("section-" + section)?.classList.add("active");
   document.querySelector(`[data-section="${section}"]`)?.classList.add("active");
 
-  const titles = { dashboard: "Dashboard", accounts: "Accounts", transactions: "Transactions", savings: "Savings", debtors: "Debtor Ledger" };
+  const titles = { dashboard: "Dashboard", accounts: "Accounts", transactions: "Transactions", transfers: "Transfers", savings: "Savings", debtors: "Debtor Ledger" };
   document.getElementById("header-title").textContent = titles[section] || section;
 
   state.currentSection = section;
@@ -262,6 +262,7 @@ async function loadSection(section) {
     if (section === "dashboard") await loadDashboard();
     else if (section === "accounts") await loadAccounts();
     else if (section === "transactions") await loadTransactions();
+    else if (section === "transfers") await loadTransfers();
     else if (section === "savings") await loadSavings();
     else if (section === "debtors") await loadDebtors();
   } catch (err) {
@@ -556,13 +557,8 @@ window.setTxType = function (type, btn) {
   document.querySelectorAll("#add-transaction-modal .tx-tab").forEach((b) => b.classList.remove("active"));
   btn.classList.add("active");
   document.getElementById("tx-to-account-group").style.display = "none";
-  document.getElementById("tx-category-group").style.display = type === "transfer" ? "none" : "block";
-  const notesEl = document.getElementById("tx-notes");
-  if (type === "transfer") {
-    notesEl.placeholder = "Where is this money going? e.g. Rent payment, sent to brother, crypto wallet...";
-  } else {
-    notesEl.placeholder = "Additional notes...";
-  }
+  document.getElementById("tx-category-group").style.display = "block";
+  document.getElementById("tx-notes").placeholder = "Additional notes...";
   populateCategorySelect(type);
 };
 
@@ -648,6 +644,132 @@ function clearTxForm() {
   document.getElementById("tx-notes").value = "";
   hideError("add-tx-error");
 }
+
+// ═══════════════════════════ TRANSFERS ═══════════════════════════════
+async function loadTransfers() {
+  const accounts = await client.query("accounts:getAccounts", { token: state.token });
+  state.accounts = accounts;
+
+  // Populate from-account filter
+  const filterSel = document.getElementById("tr-filter-account");
+  if (filterSel) {
+    filterSel.innerHTML = `<option value="">All Accounts</option>` +
+      accounts.map((a) => `<option value="${a._id}">${escHtml(a.name)}</option>`).join("");
+  }
+
+  // Populate modal from-account select
+  const modalSel = document.getElementById("tr-from-account");
+  if (modalSel) {
+    modalSel.innerHTML = `<option value="">— None / Cash —</option>` +
+      accounts.map((a) => `<option value="${a._id}">${escHtml(a.name)}</option>`).join("");
+  }
+
+  await applyTransferFilters();
+}
+
+async function applyTransferFilters() {
+  const fromAccountId = document.getElementById("tr-filter-account")?.value || undefined;
+  const month = document.getElementById("tr-filter-month")?.value || undefined;
+
+  const transfers = await client.query("transfers:getTransfers", {
+    token: state.token,
+    fromAccountId: fromAccountId || undefined,
+    month: month || undefined,
+  });
+
+  const total = transfers.reduce((s, t) => s + t.amount, 0);
+  document.getElementById("tr-summary-bar").innerHTML =
+    `<span class="tx-sum-item">Total Transferred: <strong>${fmt(total)}</strong></span>`;
+
+  const list = document.getElementById("transfers-list");
+  if (!transfers.length) {
+    list.innerHTML = `<div class="empty-state">${svgEmpty()}<p>No transfers yet.<br><strong>Click "+ Add Transfer"</strong> to record one.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = transfers.map((t) => {
+    const d = new Date(t.date);
+    const dateStr = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    return `<div class="tx-item">
+      <div class="tx-icon transfer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+      </div>
+      <div class="tx-info">
+        <div class="tx-title">→ ${escHtml(t.toNote)}</div>
+        <div class="tx-meta">${dateStr}${t.fromAccountName ? ` · from <strong>${escHtml(t.fromAccountName)}</strong>` : ""}${t.notes ? ` · ${escHtml(t.notes)}` : ""}</div>
+      </div>
+      <div class="tx-right">
+        <div class="tx-amount tx-expense">${fmt(t.amount)}</div>
+        <button class="tx-delete-btn" onclick="deleteTransfer('${t._id}')" title="Delete">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+window.openAddTransferModal = function () {
+  showModal("add-transfer-modal");
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById("tr-date").value = today;
+};
+
+window.filterTransfers = function () {
+  applyTransferFilters();
+};
+
+window.submitTransfer = async function () {
+  const fromAccountId = document.getElementById("tr-from-account").value || undefined;
+  const toNote = sanitize(document.getElementById("tr-to-note").value);
+  const amountStr = document.getElementById("tr-amount").value;
+  const date = document.getElementById("tr-date").value;
+  const notes = sanitize(document.getElementById("tr-notes").value);
+
+  clearFieldErrors(["tr-to-note-err", "tr-amount-err"]);
+  let valid = true;
+  if (!toNote) { setFieldError("tr-to-note-err", "Please describe where money went"); valid = false; }
+  const amount = parseFloat(amountStr);
+  if (!amountStr || isNaN(amount) || amount <= 0) { setFieldError("tr-amount-err", "Valid amount required"); valid = false; }
+  if (!date) { showError("add-transfer-error", "Date is required"); return; }
+  if (!valid) return;
+
+  try {
+    hideError("add-transfer-error");
+    await client.mutation("transfers:addTransfer", {
+      token: state.token,
+      fromAccountId: fromAccountId || undefined,
+      toNote,
+      amount,
+      date: new Date(date).getTime(),
+      notes: notes || undefined,
+    });
+    hideModal("add-transfer-modal");
+    // clear form
+    document.getElementById("tr-from-account").value = "";
+    document.getElementById("tr-to-note").value = "";
+    document.getElementById("tr-amount").value = "";
+    document.getElementById("tr-date").value = "";
+    document.getElementById("tr-notes").value = "";
+    await loadTransfers();
+    showToast("Transfer recorded", "success");
+  } catch (err) {
+    console.error("Add transfer error:", err);
+    showError("add-transfer-error", errMsg(err));
+  }
+};
+
+window.deleteTransfer = function (transferId) {
+  showConfirm("Delete this transfer record?", "This only removes the reminder, it does not affect any account balance.", async () => {
+    try {
+      await client.mutation("transfers:deleteTransfer", { token: state.token, transferId });
+      await loadTransfers();
+      showToast("Transfer deleted", "success");
+    } catch (err) {
+      console.error("Delete transfer error:", err);
+      showToast(errMsg(err), "error");
+    }
+  });
+};
 
 // ═══════════════════════════ SAVINGS ═════════════════════════════════
 async function loadSavings() {

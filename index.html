@@ -142,6 +142,10 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
         Transactions
       </a>
+      <a href="#" class="nav-item" data-section="transfers" onclick="navigate('transfers')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+        Transfers
+      </a>
       <a href="#" class="nav-item" data-section="savings" onclick="navigate('savings')">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0016.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 002 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
         Savings
@@ -294,7 +298,6 @@
             <option value="">All Types</option>
             <option value="income">Income</option>
             <option value="expense">Expense</option>
-            <option value="transfer">Transfer</option>
           </select>
           <input type="month" id="tx-filter-month" onchange="filterTransactions()" class="filter-input" />
         </div>
@@ -302,6 +305,32 @@
       </div>
 
       <div class="transactions-list" id="transactions-list"></div>
+    </section>
+
+    <!-- ── TRANSFERS ── -->
+    <section id="section-transfers" class="section">
+      <div class="section-header">
+        <div>
+          <h1>Transfers</h1>
+          <p class="section-subtitle">Record where your money went — no balance change</p>
+        </div>
+        <button class="btn-primary" onclick="openAddTransferModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Transfer
+        </button>
+      </div>
+
+      <div class="filter-bar">
+        <div class="filter-group">
+          <select id="tr-filter-account" onchange="filterTransfers()" class="filter-select">
+            <option value="">All Accounts</option>
+          </select>
+          <input type="month" id="tr-filter-month" onchange="filterTransfers()" class="filter-input" />
+        </div>
+        <div class="tx-summary-bar" id="tr-summary-bar"></div>
+      </div>
+
+      <div class="transactions-list" id="transfers-list"></div>
     </section>
 
     <!-- ── SAVINGS ── -->
@@ -427,7 +456,6 @@
       <div class="tx-type-tabs">
         <button class="tx-tab active" data-type="income" onclick="setTxType('income', this)">Income</button>
         <button class="tx-tab" data-type="expense" onclick="setTxType('expense', this)">Expense</button>
-        <button class="tx-tab" data-type="transfer" onclick="setTxType('transfer', this)">Transfer</button>
       </div>
       <div class="form-group">
         <label>Account *</label>
@@ -653,6 +681,54 @@
       <button class="btn-secondary" onclick="hideModal('savings-tx-modal')">Cancel</button>
       <button class="btn-primary" onclick="submitSavingsTransaction()">
         <span class="btn-text">Save</span>
+        <span class="btn-loader hidden"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Transfer Modal -->
+<div id="add-transfer-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add Transfer</h3>
+      <button class="modal-close" onclick="hideModal('add-transfer-modal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="add-transfer-error" class="auth-error hidden"></div>
+      <div class="form-group">
+        <label>From Account</label>
+        <select id="tr-from-account" class="">
+          <option value="">— None / Cash —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Sent To (reminder) *</label>
+        <input type="text" id="tr-to-note" placeholder="e.g. Rent, brother Ali, crypto wallet..." maxlength="150" required />
+        <span class="field-error" id="tr-to-note-err"></span>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Amount *</label>
+          <input type="number" id="tr-amount" placeholder="0.00" min="0.01" step="0.01" required />
+          <span class="field-error" id="tr-amount-err"></span>
+        </div>
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="tr-date" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="tr-notes" placeholder="Any extra details..." maxlength="500" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="hideModal('add-transfer-modal')">Cancel</button>
+      <button class="btn-primary" onclick="submitTransfer()">
+        <span class="btn-text">Save Transfer</span>
         <span class="btn-loader hidden"></span>
       </button>
     </div>

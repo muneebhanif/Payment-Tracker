@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as debtors from "../debtors.js";
 import type * as http from "../http.js";
 import type * as transactions from "../transactions.js";
+import type * as transfers from "../transfers.js";
 
 import type {
   ApiFromModules,
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   debtors: typeof debtors;
   http: typeof http;
   transactions: typeof transactions;
+  transfers: typeof transfers;
 }>;
 
 /**

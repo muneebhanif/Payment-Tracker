@@ -101,4 +101,16 @@ export default defineSchema({
     success: v.boolean(),
     timestamp: v.number(),
   }).index("by_email_time", ["email", "timestamp"]),
+
+  transfers: defineTable({
+    userId: v.id("users"),
+    fromAccountId: v.optional(v.id("accounts")),
+    toNote: v.string(),
+    amount: v.number(),
+    date: v.number(),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_date", ["userId", "date"]),
 });
