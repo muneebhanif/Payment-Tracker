@@ -679,7 +679,8 @@ async function applyTransferFilters() {
 
   const total = transfers.reduce((s, t) => s + t.amount, 0);
   document.getElementById("tr-summary-bar").innerHTML =
-    `<span class="tx-sum-item">Total Transferred: <strong>${fmt(total)}</strong></span>`;
+    `<span class="tx-sum-item">Total Sent: <strong style="color:var(--primary)">${fmt(total)}</strong></span>
+     <span class="tx-sum-item">${transfers.length} record${transfers.length !== 1 ? "s" : ""}</span>`;
 
   const list = document.getElementById("transfers-list");
   if (!transfers.length) {
@@ -690,28 +691,58 @@ async function applyTransferFilters() {
   list.innerHTML = transfers.map((t) => {
     const d = new Date(t.date);
     const dateStr = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-    return `<div class="tx-item">
+    return `<div class="transaction-item transfer-card">
       <div class="tx-icon transfer">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
       </div>
       <div class="tx-info">
-        <div class="tx-title">→ ${escHtml(t.toNote)}</div>
-        <div class="tx-meta">${dateStr}${t.fromAccountName ? ` · from <strong>${escHtml(t.fromAccountName)}</strong>` : ""}${t.notes ? ` · ${escHtml(t.notes)}` : ""}</div>
+        <div class="tx-category">→ ${escHtml(t.toNote)}</div>
+        ${t.fromAccountName ? `<div class="tx-desc">From: <strong>${escHtml(t.fromAccountName)}</strong></div>` : ""}
+        ${t.notes ? `<div class="tx-desc" style="font-style:italic;color:var(--text-muted)">${escHtml(t.notes)}</div>` : ""}
+        <div class="tx-meta">${dateStr}</div>
       </div>
       <div class="tx-right">
-        <div class="tx-amount tx-expense">${fmt(t.amount)}</div>
-        <button class="tx-delete-btn" onclick="deleteTransfer('${t._id}')" title="Delete">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-        </button>
+        <div class="tx-amount transfer">${fmt(t.amount)}</div>
+        <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px">
+          <button class="tx-delete-btn" onclick="openEditTransfer('${t._id}','${escAttr(t.toNote)}',${t.amount},'${new Date(t.date).toISOString().slice(0,10)}','${escAttr(t.fromAccountId||"")}','${escAttr(t.notes||"")}')" title="Edit" style="color:var(--primary)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="tx-delete-btn" onclick="deleteTransfer('${t._id}')" title="Delete">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+          </button>
+        </div>
       </div>
     </div>`;
   }).join("");
 }
 
 window.openAddTransferModal = function () {
+  state.editingTransferId = null;
+  document.getElementById("add-transfer-title").textContent = "Add Transfer";
+  document.getElementById("add-transfer-submit-text").textContent = "Save Transfer";
+  document.getElementById("tr-from-account").value = "";
+  document.getElementById("tr-to-note").value = "";
+  document.getElementById("tr-amount").value = "";
+  document.getElementById("tr-notes").value = "";
+  document.getElementById("tr-date").value = new Date().toISOString().slice(0, 10);
+  hideError("add-transfer-error");
   showModal("add-transfer-modal");
-  const today = new Date().toISOString().slice(0, 10);
-  document.getElementById("tr-date").value = today;
+};
+
+window.openEditTransfer = function (id, toNote, amount, date, fromAccountId, notes) {
+  state.editingTransferId = id;
+  document.getElementById("add-transfer-title").textContent = "Edit Transfer";
+  document.getElementById("add-transfer-submit-text").textContent = "Update Transfer";
+  document.getElementById("tr-to-note").value = toNote;
+  document.getElementById("tr-amount").value = amount;
+  document.getElementById("tr-date").value = date;
+  document.getElementById("tr-notes").value = notes;
+  hideError("add-transfer-error");
+  showModal("add-transfer-modal");
+  // Set account after modal shown (select may need to be populated)
+  setTimeout(() => {
+    if (fromAccountId) document.getElementById("tr-from-account").value = fromAccountId;
+  }, 50);
 };
 
 window.filterTransfers = function () {
@@ -735,25 +766,33 @@ window.submitTransfer = async function () {
 
   try {
     hideError("add-transfer-error");
-    await client.mutation("transfers:addTransfer", {
-      token: state.token,
-      fromAccountId: fromAccountId || undefined,
-      toNote,
-      amount,
-      date: new Date(date).getTime(),
-      notes: notes || undefined,
-    });
+    if (state.editingTransferId) {
+      await client.mutation("transfers:updateTransfer", {
+        token: state.token,
+        transferId: state.editingTransferId,
+        fromAccountId: fromAccountId || undefined,
+        toNote,
+        amount,
+        date: new Date(date).getTime(),
+        notes: notes || undefined,
+      });
+      showToast("Transfer updated", "success");
+    } else {
+      await client.mutation("transfers:addTransfer", {
+        token: state.token,
+        fromAccountId: fromAccountId || undefined,
+        toNote,
+        amount,
+        date: new Date(date).getTime(),
+        notes: notes || undefined,
+      });
+      showToast("Transfer recorded", "success");
+    }
     hideModal("add-transfer-modal");
-    // clear form
-    document.getElementById("tr-from-account").value = "";
-    document.getElementById("tr-to-note").value = "";
-    document.getElementById("tr-amount").value = "";
-    document.getElementById("tr-date").value = "";
-    document.getElementById("tr-notes").value = "";
+    state.editingTransferId = null;
     await loadTransfers();
-    showToast("Transfer recorded", "success");
   } catch (err) {
-    console.error("Add transfer error:", err);
+    console.error("Transfer error:", err);
     showError("add-transfer-error", errMsg(err));
   }
 };

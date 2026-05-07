@@ -691,7 +691,7 @@
 <div id="add-transfer-modal" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-header">
-      <h3>Add Transfer</h3>
+      <h3 id="add-transfer-title">Add Transfer</h3>
       <button class="modal-close" onclick="hideModal('add-transfer-modal')">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -699,13 +699,13 @@
     <div class="modal-body">
       <div id="add-transfer-error" class="auth-error hidden"></div>
       <div class="form-group">
-        <label>From Account</label>
-        <select id="tr-from-account" class="">
+        <label>From Account <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
+        <select id="tr-from-account">
           <option value="">— None / Cash —</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Sent To (reminder) *</label>
+        <label>Sent To *</label>
         <input type="text" id="tr-to-note" placeholder="e.g. Rent, brother Ali, crypto wallet..." maxlength="150" required />
         <span class="field-error" id="tr-to-note-err"></span>
       </div>
@@ -728,7 +728,7 @@
     <div class="modal-footer">
       <button class="btn-secondary" onclick="hideModal('add-transfer-modal')">Cancel</button>
       <button class="btn-primary" onclick="submitTransfer()">
-        <span class="btn-text">Save Transfer</span>
+        <span class="btn-text" id="add-transfer-submit-text">Save Transfer</span>
         <span class="btn-loader hidden"></span>
       </button>
     </div>

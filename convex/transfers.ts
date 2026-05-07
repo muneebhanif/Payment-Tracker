@@ -84,3 +84,27 @@ export const deleteTransfer = mutation({
     await ctx.db.delete(args.transferId);
   },
 });
+
+export const updateTransfer = mutation({
+  args: {
+    token: v.string(),
+    transferId: v.id("transfers"),
+    fromAccountId: v.optional(v.id("accounts")),
+    toNote: v.string(),
+    amount: v.number(),
+    date: v.number(),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getUser(ctx, args.token);
+    const transfer = await ctx.db.get(args.transferId);
+    if (!transfer || transfer.userId !== user._id) throw new Error("Not found");
+    await ctx.db.patch(args.transferId, {
+      fromAccountId: args.fromAccountId,
+      toNote: args.toNote,
+      amount: args.amount,
+      date: args.date,
+      notes: args.notes,
+    });
+  },
+});
