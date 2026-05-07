@@ -84,16 +84,10 @@ export const addTransaction = mutation({
       await ctx.db.patch(args.accountId, {
         balance: account.balance - args.amount,
       });
-    } else if (args.type === "transfer" && args.toAccountId) {
-      const toAccount = await ctx.db.get(args.toAccountId);
-      if (!toAccount || toAccount.userId !== user._id || !toAccount.isActive) {
-        throw new Error("Destination account not found or access denied");
-      }
+    } else if (args.type === "transfer") {
+      // Transfer out: just deduct from this account; destination is noted in the notes field
       await ctx.db.patch(args.accountId, {
         balance: account.balance - args.amount,
-      });
-      await ctx.db.patch(args.toAccountId, {
-        balance: toAccount.balance + args.amount,
       });
     }
 

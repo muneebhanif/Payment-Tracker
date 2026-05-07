@@ -555,8 +555,14 @@ window.setTxType = function (type, btn) {
   state.currentTxType = type;
   document.querySelectorAll("#add-transaction-modal .tx-tab").forEach((b) => b.classList.remove("active"));
   btn.classList.add("active");
-  document.getElementById("tx-to-account-group").style.display = type === "transfer" ? "block" : "none";
+  document.getElementById("tx-to-account-group").style.display = "none";
   document.getElementById("tx-category-group").style.display = type === "transfer" ? "none" : "block";
+  const notesEl = document.getElementById("tx-notes");
+  if (type === "transfer") {
+    notesEl.placeholder = "Where is this money going? e.g. Rent payment, sent to brother, crypto wallet...";
+  } else {
+    notesEl.placeholder = "Additional notes...";
+  }
   populateCategorySelect(type);
 };
 
@@ -608,7 +614,7 @@ window.addTransaction = async function () {
       description: description || undefined,
       notes: notes || undefined,
       date: new Date(date).getTime(),
-      toAccountId: state.currentTxType === "transfer" ? toAccountId : undefined,
+      toAccountId: undefined,
     });
     hideModal("add-transaction-modal");
     clearTxForm();
