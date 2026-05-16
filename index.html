@@ -814,6 +814,32 @@
   </div>
 </div>
 
+<!-- Company Detail Modal -->
+<div id="company-detail-modal" class="modal-overlay hidden">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div>
+        <h3 id="company-detail-name">Company</h3>
+        <p id="company-detail-meta" style="font-size:.82rem;color:var(--text-muted);margin-top:2px"></p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn-secondary btn-sm" id="company-detail-edit-btn" style="display:flex;align-items:center;gap:6px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit
+        </button>
+        <button class="modal-close" onclick="hideModal('company-detail-modal')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="company-detail-info" style="display:flex;flex-wrap:wrap;gap:20px;padding:12px 0 18px;border-bottom:1px solid var(--border);margin-bottom:20px"></div>
+      <h4 style="margin-bottom:12px;font-size:.9rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)">Linked Debtors</h4>
+      <div id="company-detail-debtors"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm Delete Modal -->
 <div id="confirm-modal" class="modal-overlay hidden">
   <div class="modal modal-sm">
@@ -830,7 +856,6 @@
   </div>
 </div>
 
-<!-- Toast Container -->
 <div id="toast-container"></div>
 
 <!-- Convex browser client (served locally – avoids CDN MIME-type issues) -->

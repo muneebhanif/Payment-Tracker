@@ -959,7 +959,7 @@ function renderCompanies(companies) {
   }
   grid.innerHTML = companies.map((c) => {
     const debtors = (state.debtors || []).filter((d) => d.companyId === c._id);
-    return `<div class="debtor-card">
+    return `<div class="debtor-card" style="cursor:pointer" onclick="openCompanyDetail('${c._id}')">
       <div class="debtor-card-header">
         <div class="debtor-avatar" style="background:linear-gradient(135deg,#6366F1,#4F46E5);font-size:1.1rem">🏢</div>
         <div style="flex:1;min-width:0">
@@ -977,7 +977,7 @@ function renderCompanies(companies) {
           ${debtors.length ? `: ${debtors.map(d => escHtml(d.name)).join(", ")}` : ""}
         </div>
       </div>
-      <div class="debtor-card-footer">
+      <div class="debtor-card-footer" onclick="event.stopPropagation()">
         <div style="font-size:.78rem;color:var(--text-muted)">Created ${formatDate(c.createdAt)}</div>
         <div class="debtor-actions">
           <button class="acc-action-btn" onclick="openEditCompany('${c._id}','${escAttr(c.name)}','${escAttr(c.industry||'')}','${escAttr(c.phone||'')}','${escAttr(c.email||'')}','${escAttr(c.address||'')}','${escAttr(c.notes||'')}')">
@@ -993,6 +993,68 @@ function renderCompanies(companies) {
     </div>`;
   }).join("");
 }
+
+window.openCompanyDetail = function (companyId) {
+  const c = (state.companies || []).find((x) => x._id === companyId);
+  if (!c) return;
+
+  document.getElementById("company-detail-name").textContent = c.name;
+
+  // Meta info
+  const meta = [c.industry, c.phone, c.email, c.address].filter(Boolean).join("  ·  ");
+  document.getElementById("company-detail-meta").textContent = meta || "";
+
+  // Info chips
+  const chips = [];
+  if (c.industry) chips.push(`<span style="background:var(--primary-light);color:var(--primary);padding:3px 10px;border-radius:20px;font-size:.78rem;font-weight:600">${escHtml(c.industry)}</span>`);
+  if (c.phone)    chips.push(`<span style="font-size:.82rem">📞 ${escHtml(c.phone)}</span>`);
+  if (c.email)    chips.push(`<span style="font-size:.82rem">✉️ ${escHtml(c.email)}</span>`);
+  if (c.address)  chips.push(`<span style="font-size:.82rem">📍 ${escHtml(c.address)}</span>`);
+  if (c.notes)    chips.push(`<span style="font-size:.82rem;font-style:italic;color:var(--text-muted)">${escHtml(c.notes)}</span>`);
+  document.getElementById("company-detail-info").innerHTML = chips.length
+    ? chips.map(ch => `<div style="display:flex;align-items:center;gap:6px">${ch}</div>`).join("")
+    : `<span style="color:var(--text-muted);font-size:.85rem">No additional info</span>`;
+
+  // Wire up Edit button
+  const editBtn = document.getElementById("company-detail-edit-btn");
+  editBtn.onclick = () => {
+    hideModal("company-detail-modal");
+    openEditCompany(c._id, c.name, c.industry||"", c.phone||"", c.email||"", c.address||"", c.notes||"");
+  };
+
+  // Linked debtors
+  const debtors = (state.debtors || []).filter((d) => d.companyId === companyId);
+  const container = document.getElementById("company-detail-debtors");
+  if (!debtors.length) {
+    container.innerHTML = `<div style="color:var(--text-muted);font-size:.875rem;padding:16px 0">No debtors linked to this company yet.<br>Go to <strong>Debtors</strong> and assign this company to a debtor.</div>`;
+  } else {
+    const totalOwed = debtors.reduce((s, d) => s + d.totalOwed, 0);
+    container.innerHTML = `
+      <div style="background:var(--bg-hover);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.85rem;color:var(--text-secondary)">${debtors.length} debtor${debtors.length !== 1 ? "s" : ""}</span>
+        <span style="font-weight:700;font-size:1rem;color:var(--danger)">Total Owed: ${fmt(totalOwed)}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${debtors.map(d => `
+          <div class="transaction-item" style="cursor:pointer" onclick="hideModal('company-detail-modal');openDebtorDetail('${d._id}')">
+            <div class="tx-icon" style="background:var(--danger-light);color:var(--danger);width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;flex-shrink:0">
+              ${escHtml(d.name[0].toUpperCase())}
+            </div>
+            <div class="tx-info">
+              <div class="tx-category">${escHtml(d.name)}</div>
+              <div class="tx-desc">${escHtml(d.phone || d.email || "No contact info")}</div>
+            </div>
+            <div class="tx-right">
+              <div class="tx-amount ${d.status === 'cleared' ? 'income' : 'expense'}">${fmt(d.totalOwed)}</div>
+              <div class="tx-date">${statusBadge(d.status)}</div>
+            </div>
+          </div>
+        `).join("")}
+      </div>`;
+  }
+
+  showModal("company-detail-modal");
+};
 
 window.openAddCompanyModal = function () {
   editingCompanyId = null;
