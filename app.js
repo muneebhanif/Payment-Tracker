@@ -936,8 +936,12 @@ window.submitSavingsTransaction = async function () {
 let editingCompanyId = null;
 
 async function loadCompanies() {
-  const companies = await client.query("companies:getCompanies", { token: state.token });
+  const [companies, debtors] = await Promise.all([
+    client.query("companies:getCompanies", { token: state.token }),
+    client.query("debtors:getDebtors", { token: state.token }),
+  ]);
   state.companies = companies;
+  state.debtors = debtors;
   renderCompanies(companies);
   populateCompanySelect();
 }
