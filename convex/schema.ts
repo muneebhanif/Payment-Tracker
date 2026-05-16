@@ -67,6 +67,7 @@ export default defineSchema({
     userId: v.id("users"),
     name: v.string(),
     company: v.optional(v.string()),
+    companyId: v.optional(v.id("companies")),
     phone: v.optional(v.string()),
     email: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -114,4 +115,17 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_userId_date", ["userId", "date"]),
+
+  companies: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    industry: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    email: v.optional(v.string()),
+    address: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"]),
 });

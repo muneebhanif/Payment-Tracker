@@ -57,6 +57,7 @@ export const createDebtor = mutation({
     token: v.string(),
     name: v.string(),
     company: v.optional(v.string()),
+    companyId: v.optional(v.id("companies")),
     phone: v.optional(v.string()),
     email: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -85,6 +86,7 @@ export const createDebtor = mutation({
       userId: user._id,
       name,
       company: args.company?.trim(),
+      companyId: args.companyId,
       phone: args.phone?.trim(),
       email: args.email?.trim().toLowerCase(),
       notes: args.notes?.trim(),
@@ -118,6 +120,7 @@ export const updateDebtor = mutation({
     debtorId: v.id("debtors"),
     name: v.optional(v.string()),
     company: v.optional(v.string()),
+    companyId: v.optional(v.id("companies")),
     phone: v.optional(v.string()),
     email: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -139,6 +142,7 @@ export const updateDebtor = mutation({
     }
     if (args.phone !== undefined) updates.phone = args.phone.trim();
     if (args.company !== undefined) updates.company = args.company.trim();
+    if (args.companyId !== undefined) updates.companyId = args.companyId || undefined;
     if (args.email !== undefined) {
       if (args.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(args.email)) {
         throw new Error("Invalid email address");

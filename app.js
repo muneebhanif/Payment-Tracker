@@ -232,7 +232,7 @@ window.navigate = function (section) {
   document.getElementById("section-" + section)?.classList.add("active");
   document.querySelector(`[data-section="${section}"]`)?.classList.add("active");
 
-  const titles = { dashboard: "Dashboard", accounts: "Accounts", transactions: "Transactions", transfers: "Transfers", savings: "Savings", debtors: "Debtor Ledger" };
+  const titles = { dashboard: "Dashboard", accounts: "Accounts", transactions: "Transactions", transfers: "Transfers", savings: "Savings", debtors: "Debtor Ledger", companies: "Companies" };
   document.getElementById("header-title").textContent = titles[section] || section;
 
   state.currentSection = section;
@@ -265,6 +265,7 @@ async function loadSection(section) {
     else if (section === "transfers") await loadTransfers();
     else if (section === "savings") await loadSavings();
     else if (section === "debtors") await loadDebtors();
+    else if (section === "companies") await loadCompanies();
   } catch (err) {
     console.error("Navigation error:", err);
     if (errMsg(err).includes("Unauthorized")) {
@@ -931,14 +932,145 @@ window.submitSavingsTransaction = async function () {
   }
 };
 
+// ═══════════════════════════ COMPANIES ══════════════════════════════
+let editingCompanyId = null;
+
+async function loadCompanies() {
+  const companies = await client.query("companies:getCompanies", { token: state.token });
+  state.companies = companies;
+  renderCompanies(companies);
+  populateCompanySelect();
+}
+
+function populateCompanySelect() {
+  const sel = document.getElementById("debtor-company-id");
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = `<option value="">— No company —</option>` +
+    (state.companies || []).map((c) => `<option value="${c._id}">${escHtml(c.name)}</option>`).join("");
+  if (current) sel.value = current;
+}
+
+function renderCompanies(companies) {
+  const grid = document.getElementById("companies-grid");
+  if (!companies.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">${svgEmpty()}<p>No companies yet.<br><strong>Click "+ Add Company"</strong> to create one.</p></div>`;
+    return;
+  }
+  grid.innerHTML = companies.map((c) => {
+    const debtors = (state.debtors || []).filter((d) => d.companyId === c._id);
+    return `<div class="debtor-card">
+      <div class="debtor-card-header">
+        <div class="debtor-avatar" style="background:linear-gradient(135deg,#6366F1,#4F46E5);font-size:1.1rem">🏢</div>
+        <div style="flex:1;min-width:0">
+          <div class="debtor-name">${escHtml(c.name)}</div>
+          ${c.industry ? `<div style="font-size:.75rem;color:var(--primary);font-weight:500">${escHtml(c.industry)}</div>` : ""}
+        </div>
+      </div>
+      <div class="debtor-card-body" style="font-size:.82rem;color:var(--text-secondary);display:flex;flex-direction:column;gap:4px">
+        ${c.phone ? `<div>📞 ${escHtml(c.phone)}</div>` : ""}
+        ${c.email ? `<div>✉️ ${escHtml(c.email)}</div>` : ""}
+        ${c.address ? `<div>📍 ${escHtml(c.address)}</div>` : ""}
+        ${c.notes ? `<div style="color:var(--text-muted);font-style:italic;margin-top:4px">${escHtml(c.notes)}</div>` : ""}
+        <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-weight:500;color:var(--text-primary)">
+          ${debtors.length} linked debtor${debtors.length !== 1 ? "s" : ""}
+          ${debtors.length ? `: ${debtors.map(d => escHtml(d.name)).join(", ")}` : ""}
+        </div>
+      </div>
+      <div class="debtor-card-footer">
+        <div style="font-size:.78rem;color:var(--text-muted)">Created ${formatDate(c.createdAt)}</div>
+        <div class="debtor-actions">
+          <button class="acc-action-btn" onclick="openEditCompany('${c._id}','${escAttr(c.name)}','${escAttr(c.industry||'')}','${escAttr(c.phone||'')}','${escAttr(c.email||'')}','${escAttr(c.address||'')}','${escAttr(c.notes||'')}')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit
+          </button>
+          <button class="acc-action-btn" style="color:var(--danger);border-color:#FECACA" onclick="deleteCompany('${c._id}','${escAttr(c.name)}')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+window.openAddCompanyModal = function () {
+  editingCompanyId = null;
+  document.getElementById("company-modal-title").textContent = "Add Company";
+  document.getElementById("co-submit-text").textContent = "Save Company";
+  ["co-name","co-industry","co-phone","co-email","co-address","co-notes"].forEach((id) => { document.getElementById(id).value = ""; });
+  hideError("company-modal-error");
+  showModal("company-modal");
+};
+
+window.openEditCompany = function (id, name, industry, phone, email, address, notes) {
+  editingCompanyId = id;
+  document.getElementById("company-modal-title").textContent = "Edit Company";
+  document.getElementById("co-submit-text").textContent = "Update Company";
+  document.getElementById("co-name").value = name;
+  document.getElementById("co-industry").value = industry;
+  document.getElementById("co-phone").value = phone;
+  document.getElementById("co-email").value = email;
+  document.getElementById("co-address").value = address;
+  document.getElementById("co-notes").value = notes;
+  hideError("company-modal-error");
+  showModal("company-modal");
+};
+
+window.submitCompany = async function () {
+  const name = sanitize(document.getElementById("co-name").value);
+  if (!name) { setFieldError("co-name-err", "Name is required"); return; }
+  clearFieldErrors(["co-name-err"]);
+  const payload = {
+    token: state.token,
+    name,
+    industry: sanitize(document.getElementById("co-industry").value) || undefined,
+    phone: sanitize(document.getElementById("co-phone").value) || undefined,
+    email: sanitize(document.getElementById("co-email").value) || undefined,
+    address: sanitize(document.getElementById("co-address").value) || undefined,
+    notes: sanitize(document.getElementById("co-notes").value) || undefined,
+  };
+  try {
+    hideError("company-modal-error");
+    if (editingCompanyId) {
+      await client.mutation("companies:updateCompany", { ...payload, companyId: editingCompanyId });
+      showToast("Company updated", "success");
+    } else {
+      await client.mutation("companies:createCompany", payload);
+      showToast("Company added", "success");
+    }
+    editingCompanyId = null;
+    hideModal("company-modal");
+    await loadCompanies();
+  } catch (err) {
+    console.error("Company error:", err);
+    showError("company-modal-error", errMsg(err));
+  }
+};
+
+window.deleteCompany = function (companyId, name) {
+  showConfirm(`Delete "${name}"?`, "Linked debtors will be unlinked but not deleted.", async () => {
+    try {
+      await client.mutation("companies:deleteCompany", { token: state.token, companyId });
+      await loadCompanies();
+      showToast("Company deleted", "success");
+    } catch (err) {
+      showToast(errMsg(err), "error");
+    }
+  });
+};
+
 // ═══════════════════════════ DEBTORS ═════════════════════════════════
 async function loadDebtors() {
-  const [summary, debtors] = await Promise.all([
+  const [summary, debtors, companies] = await Promise.all([
     client.query("debtors:getDebtorsSummary", { token: state.token }),
     client.query("debtors:getDebtors", { token: state.token }),
+    client.query("companies:getCompanies", { token: state.token }),
   ]);
 
   state.debtors = debtors;
+  state.companies = companies;
+  populateCompanySelect();
 
   // Stats
   document.getElementById("debtors-stats").innerHTML = `
@@ -989,7 +1121,7 @@ function renderDebtors(debtors, filter) {
         <div class="debtor-avatar">${escHtml(d.name[0].toUpperCase())}</div>
         <div>
           <div class="debtor-name">${escHtml(d.name)}</div>
-          ${d.company ? `<div style="font-size:.75rem;font-weight:600;color:var(--primary);margin-top:1px">🏢 ${escHtml(d.company)}</div>` : ""}
+          ${(d.companyId && (state.companies||[]).find(c=>c._id===d.companyId)) ? `<div style="font-size:.75rem;font-weight:600;color:var(--primary);margin-top:1px">🏢 ${escHtml((state.companies||[]).find(c=>c._id===d.companyId).name)}</div>` : (d.company ? `<div style="font-size:.75rem;font-weight:600;color:var(--primary);margin-top:1px">🏢 ${escHtml(d.company)}</div>` : "")}
           <div class="debtor-contact">${escHtml(d.phone || d.email || "No contact")}</div>
         </div>
         ${statusBadge(d.status)}
@@ -1001,7 +1133,7 @@ function renderDebtors(debtors, filter) {
       <div class="debtor-card-footer">
         <div style="font-size:.78rem;color:var(--text-muted)">Updated ${formatDate(d.updatedAt)}</div>
         <div class="debtor-actions" onclick="event.stopPropagation()">
-          <button class="acc-action-btn" onclick="openEditDebtor('${d._id}', '${escAttr(d.name)}', '${escAttr(d.company||'')}', '${escAttr(d.phone||'')}', '${escAttr(d.email||'')}', '${escAttr(d.notes||'')}')" title="Edit debtor">
+          <button class="acc-action-btn" onclick="openEditDebtor('${d._id}', '${escAttr(d.name)}', '${escAttr(d.companyId||'')}', '${escAttr(d.phone||'')}', '${escAttr(d.email||'')}', '${escAttr(d.notes||'')}')" title="Edit debtor">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Edit
           </button>
@@ -1024,7 +1156,7 @@ window.filterDebtors = function (btn, status) {
 
 window.createDebtor = async function () {
   const name = sanitize(document.getElementById("debtor-name").value);
-  const company = sanitize(document.getElementById("debtor-company").value);
+  const companyId = document.getElementById("debtor-company-id").value || undefined;
   const phone = sanitize(document.getElementById("debtor-phone").value);
   const email = sanitize(document.getElementById("debtor-email").value).toLowerCase();
   const notes = sanitize(document.getElementById("debtor-notes").value);
@@ -1039,7 +1171,7 @@ window.createDebtor = async function () {
       await client.mutation("debtors:updateDebtor", {
         token: state.token,
         debtorId: editingDebtorId,
-        name, company: company || undefined, phone: phone || undefined, email: email || undefined, notes: notes || undefined,
+        name, companyId: companyId || undefined, company: undefined, phone: phone || undefined, email: email || undefined, notes: notes || undefined,
       });
       editingDebtorId = null;
       document.getElementById("create-debtor-title").textContent = "Add New Debtor";
@@ -1064,7 +1196,7 @@ window.createDebtor = async function () {
     await client.mutation("debtors:createDebtor", {
       token: state.token,
       name,
-      company: company || undefined,
+      companyId: companyId || undefined,
       phone: phone || undefined,
       email: email || undefined,
       notes: notes || undefined,
@@ -1191,11 +1323,11 @@ window.confirmDeleteDebtor = function (debtorId, name) {
 
 // ── Edit debtor (re-uses create modal in edit mode) ──────────────────
 let editingDebtorId = null;
-window.openEditDebtor = function (debtorId, name, company, phone, email, notes) {
+window.openEditDebtor = function (debtorId, name, companyId, phone, email, notes) {
   editingDebtorId = debtorId;
   document.getElementById("create-debtor-title").textContent = "Edit Debtor";
   document.getElementById("debtor-name").value = name;
-  document.getElementById("debtor-company").value = company;
+  setTimeout(() => { if (companyId) document.getElementById("debtor-company-id").value = companyId; }, 50);
   document.getElementById("debtor-phone").value = phone;
   document.getElementById("debtor-email").value = email;
   document.getElementById("debtor-notes").value = notes;
@@ -1348,7 +1480,7 @@ window.downloadCombinedPdf = async function () {
 
 function clearDebtorForm() {
   document.getElementById("debtor-name").value = "";
-  document.getElementById("debtor-company").value = "";
+  document.getElementById("debtor-company-id").value = "";
   document.getElementById("debtor-phone").value = "";
   document.getElementById("debtor-email").value = "";
   document.getElementById("debtor-notes").value = "";
