@@ -989,6 +989,7 @@ function renderDebtors(debtors, filter) {
         <div class="debtor-avatar">${escHtml(d.name[0].toUpperCase())}</div>
         <div>
           <div class="debtor-name">${escHtml(d.name)}</div>
+          ${d.company ? `<div style="font-size:.75rem;font-weight:600;color:var(--primary);margin-top:1px">🏢 ${escHtml(d.company)}</div>` : ""}
           <div class="debtor-contact">${escHtml(d.phone || d.email || "No contact")}</div>
         </div>
         ${statusBadge(d.status)}
@@ -1000,7 +1001,7 @@ function renderDebtors(debtors, filter) {
       <div class="debtor-card-footer">
         <div style="font-size:.78rem;color:var(--text-muted)">Updated ${formatDate(d.updatedAt)}</div>
         <div class="debtor-actions" onclick="event.stopPropagation()">
-          <button class="acc-action-btn" onclick="openEditDebtor('${d._id}', '${escAttr(d.name)}', '${escAttr(d.phone||'')}', '${escAttr(d.email||'')}', '${escAttr(d.notes||'')}')" title="Edit debtor">
+          <button class="acc-action-btn" onclick="openEditDebtor('${d._id}', '${escAttr(d.name)}', '${escAttr(d.company||'')}', '${escAttr(d.phone||'')}', '${escAttr(d.email||'')}', '${escAttr(d.notes||'')}')" title="Edit debtor">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Edit
           </button>
@@ -1023,6 +1024,7 @@ window.filterDebtors = function (btn, status) {
 
 window.createDebtor = async function () {
   const name = sanitize(document.getElementById("debtor-name").value);
+  const company = sanitize(document.getElementById("debtor-company").value);
   const phone = sanitize(document.getElementById("debtor-phone").value);
   const email = sanitize(document.getElementById("debtor-email").value).toLowerCase();
   const notes = sanitize(document.getElementById("debtor-notes").value);
@@ -1037,7 +1039,7 @@ window.createDebtor = async function () {
       await client.mutation("debtors:updateDebtor", {
         token: state.token,
         debtorId: editingDebtorId,
-        name, phone: phone || undefined, email: email || undefined, notes: notes || undefined,
+        name, company: company || undefined, phone: phone || undefined, email: email || undefined, notes: notes || undefined,
       });
       editingDebtorId = null;
       document.getElementById("create-debtor-title").textContent = "Add New Debtor";
@@ -1062,6 +1064,7 @@ window.createDebtor = async function () {
     await client.mutation("debtors:createDebtor", {
       token: state.token,
       name,
+      company: company || undefined,
       phone: phone || undefined,
       email: email || undefined,
       notes: notes || undefined,
@@ -1085,7 +1088,9 @@ window.openDebtorDetail = async function (debtorId) {
   state.currentDebtor = debtor;
 
   document.getElementById("debtor-detail-name").textContent = debtor.name;
-  document.getElementById("debtor-detail-status").innerHTML = statusBadge(debtor.status);
+  document.getElementById("debtor-detail-status").innerHTML =
+    (debtor.company ? `<span style="font-size:.78rem;font-weight:600;color:var(--primary);margin-right:6px">🏢 ${escHtml(debtor.company)}</span>` : "") +
+    statusBadge(debtor.status);
   document.getElementById("debtor-detail-amount").textContent = fmt(debtor.totalOwed);
   document.getElementById("debtor-detail-amount").style.color = debtor.status === "cleared" ? "var(--success)" : "var(--danger)";
 
@@ -1186,10 +1191,11 @@ window.confirmDeleteDebtor = function (debtorId, name) {
 
 // ── Edit debtor (re-uses create modal in edit mode) ──────────────────
 let editingDebtorId = null;
-window.openEditDebtor = function (debtorId, name, phone, email, notes) {
+window.openEditDebtor = function (debtorId, name, company, phone, email, notes) {
   editingDebtorId = debtorId;
   document.getElementById("create-debtor-title").textContent = "Edit Debtor";
   document.getElementById("debtor-name").value = name;
+  document.getElementById("debtor-company").value = company;
   document.getElementById("debtor-phone").value = phone;
   document.getElementById("debtor-email").value = email;
   document.getElementById("debtor-notes").value = notes;
@@ -1342,6 +1348,7 @@ window.downloadCombinedPdf = async function () {
 
 function clearDebtorForm() {
   document.getElementById("debtor-name").value = "";
+  document.getElementById("debtor-company").value = "";
   document.getElementById("debtor-phone").value = "";
   document.getElementById("debtor-email").value = "";
   document.getElementById("debtor-notes").value = "";

@@ -66,6 +66,7 @@ export default defineSchema({
   debtors: defineTable({
     userId: v.id("users"),
     name: v.string(),
+    company: v.optional(v.string()),
     phone: v.optional(v.string()),
     email: v.optional(v.string()),
     notes: v.optional(v.string()),

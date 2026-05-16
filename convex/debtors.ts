@@ -56,6 +56,7 @@ export const createDebtor = mutation({
   args: {
     token: v.string(),
     name: v.string(),
+    company: v.optional(v.string()),
     phone: v.optional(v.string()),
     email: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -83,6 +84,7 @@ export const createDebtor = mutation({
     const debtorId = await ctx.db.insert("debtors", {
       userId: user._id,
       name,
+      company: args.company?.trim(),
       phone: args.phone?.trim(),
       email: args.email?.trim().toLowerCase(),
       notes: args.notes?.trim(),
@@ -115,6 +117,7 @@ export const updateDebtor = mutation({
     token: v.string(),
     debtorId: v.id("debtors"),
     name: v.optional(v.string()),
+    company: v.optional(v.string()),
     phone: v.optional(v.string()),
     email: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -135,6 +138,7 @@ export const updateDebtor = mutation({
       updates.name = name;
     }
     if (args.phone !== undefined) updates.phone = args.phone.trim();
+    if (args.company !== undefined) updates.company = args.company.trim();
     if (args.email !== undefined) {
       if (args.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(args.email)) {
         throw new Error("Invalid email address");
